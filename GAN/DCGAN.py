@@ -6,7 +6,7 @@ from keras.layers import BatchNormalization
 from keras.optimizers import Adam, RMSprop
 
 class DCGAN(object):
-    def __init__(self, img_rows=28, img_cols=28, channel=1):
+    def __init__(self, img_rows=256, img_cols=256, channel=3):
 
         self.img_rows = img_rows
         self.img_cols = img_cols
@@ -56,7 +56,7 @@ class DCGAN(object):
             return self.G
         self.G = Sequential()
         dropout = 0.4
-        depth = 64+64+64+64
+        depth = 64+64+64#+64
         dim_1 = self.img_rows//4
         dim_2 = self.img_cols//4
         # In: 100
