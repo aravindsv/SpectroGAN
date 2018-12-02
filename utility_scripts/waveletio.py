@@ -6,7 +6,8 @@ def audio_to_wavelet(wavfile, filename):
 
     rate, in_file = wio.read(wavfile)
     cA, cD = pywt.dwt(in_file, 'db2')
-
+    print(cA.shape)
+    print(cD.shape)
     out_data = pywt.idwt(cA, cD, 'db2')
     #out_file = (filename, rate, out_data)
 
