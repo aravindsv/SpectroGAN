@@ -8,10 +8,12 @@ from tqdm import tqdm
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('sounddir', default='BirdSounds/Train')
+parser.add_argument('sounddir', required=False)
 args = parser.parse_args()
 
 sounddir = args.sounddir
+if sounddir is None:
+    sounddir = 'BirdSounds'
 dataset_name = os.path.basename(os.path.normpath(sounddir))
 wavelet_arr = []
 
