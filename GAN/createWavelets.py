@@ -19,9 +19,11 @@ for soundfile in tqdm(os.listdir(sounddir)):
     wav, fs = librosa.core.load(os.path.join(sounddir, soundfile), sr=None)
     #  fs, wav = wio.read(os.path.join(sounddir, soundfile))
     cA, cD = pywt.dwt(wav, 'db2')
+    cA, cD = cA[:-1], cD[:-1]
     N = len(cA)
     waveletc = np.vstack([cA, cD])
-    wavelet_arr.append(waveletc.reshape(2,-1,1))
+    waveletc = waveletc.reshape(210,210,1)
+    wavelet_arr.append(waveletc)
 
 wavelet_arr = np.array(wavelet_arr)
 wavelet_dataset_file = '{}_wavelets.npy'.format(dataset_name)

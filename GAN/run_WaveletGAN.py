@@ -147,6 +147,7 @@ class FSDD_WaveletGAN(object):
             if epoch%img_interval == 0:
                 self.adversarial.save(os.path.join(model_dir, 'adversarial_checkpoint_acc{}_e{}.h5'.format(a_loss_total[1], epoch)))                
                 wavelet = displayed_samples[0]
+                wavelet = wavelet.reshape(2,-1)
                 cA, cD = wavelet[0].reshape(-1), wavelet[1].reshape(-1)
                 reconstruction = pywt.idwt(cA, cD, 'db2')
                 librosa.output.write_wav(os.path.join(run_directory, "reconstruction_e{}.wav".format(epoch)), reconstruction, 44100, norm=True)
@@ -163,6 +164,7 @@ class FSDD_WaveletGAN(object):
 
         self.adversarial.save(os.path.join(model_dir, 'adversarial_final_acc{}.h5'.format(a_loss_total[1])))                
         wavelet = displayed_samples[0]
+        wavelet = wavelet.reshape(2,-1)
         cA, cD = wavelet[0].reshape(-1), wavelet[1].reshape(-1)
         reconstruction = pywt.idwt(cA, cD, 'db2')
         librosa.output.write_wav(os.path.join(run_directory, "reconstruction_final.wav"), reconstruction, 44100, norm=True)
