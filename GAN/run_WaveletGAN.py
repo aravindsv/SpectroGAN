@@ -16,6 +16,8 @@ from keras.preprocessing.image import ImageDataGenerator
 
 import matplotlib.pyplot as plt
 
+import argparse
+
 class ElapsedTimer(object):
     def __init__(self):
         self.start_time = time.time()
@@ -30,10 +32,7 @@ class ElapsedTimer(object):
         print("Elapsed: %s " % self.elapsed(time.time() - self.start_time) )
 
 class FSDD_WaveletGAN(object):
-    def __init__(self):
-        self.img_rows = 591
-        self.img_cols = 944
-
+    def __init__(self, dataset_file):
         self.datagen = ImageDataGenerator()
 
         # self.x_train = input_data.read_data_sets("mnist",\
@@ -41,7 +40,8 @@ class FSDD_WaveletGAN(object):
         # self.x_train = self.x_train.reshape(-1, self.img_rows,\
         #     self.img_cols, 1).astype(np.float32)
 
-        xd = np.load('bird_wavelets.npy')
+        self.dataset_file = dataset_file
+        xd = np.load(dataset_file)
         xd = xd[0]
         if xd.shape[1] % 2 != 0:
             xd = xd[:,:-1,:]
@@ -53,12 +53,12 @@ class FSDD_WaveletGAN(object):
     def train_GAN(self, num_epochs=100, batch_size=32, img_interval = 10, patience=5):
         
         datestr = "{:%m%d%y_%H%M%S}".format(datetime.now())
-        run_directory = 'bird_wavelet_runs/{}/'.format(datestr)
+        run_directory = '{}_runs/{}/'.format(self.dataset_file, datestr)
         os.makedirs(run_directory, exist_ok=True)
         model_dir = os.path.join(run_directory, 'discriminator_models')
         os.makedirs(model_dir, exist_ok=True)
 
-        x_data = np.load('bird_wavelets.npy')
+        x_data = np.load(self.dataset_file)
         print("============================================\r\n======================================================\r\n")
         print("x_data: {}".format(x_data.shape))
         y_labels = np.ones((len(x_data)))
@@ -169,7 +169,10 @@ class FSDD_WaveletGAN(object):
         #  wio.write(os.path.join(run_directory, "reconstrution_final.wav"), 44100, reconstruction)
 
 if __name__ == '__main__':
-    waveletGAN = FSDD_WaveletGAN()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('dataset_file')
+    args = parser.parse_args()
+    waveletGAN = FSDD_WaveletGAN(args.dataset_file)
     timer = ElapsedTimer()
     waveletGAN.train_GAN(num_epochs=50, batch_size=8, img_interval=1)
     timer.elapsed_time()

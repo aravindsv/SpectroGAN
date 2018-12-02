@@ -8,12 +8,10 @@ from tqdm import tqdm
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('sounddir', required=False)
+parser.add_argument('sounddir')
 args = parser.parse_args()
 
 sounddir = args.sounddir
-if sounddir is None:
-    sounddir = 'BirdSounds'
 dataset_name = os.path.basename(os.path.normpath(sounddir))
 wavelet_arr = []
 
@@ -24,7 +22,6 @@ for soundfile in tqdm(os.listdir(sounddir)):
     N = len(cA)
     waveletc = np.vstack([cA, cD])
     wavelet_arr.append(waveletc.reshape(2,-1,1))
-    print("wav: {}, N: {}".format(len(wav), N))
 
 wavelet_arr = np.array(wavelet_arr)
 wavelet_dataset_file = '{}_wavelets.npy'.format(dataset_name)
