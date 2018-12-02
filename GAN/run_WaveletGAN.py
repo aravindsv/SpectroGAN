@@ -45,7 +45,7 @@ class FSDD_WaveletGAN(object):
         xd = xd[0]
         if xd.shape[1] % 2 != 0:
             xd = xd[:,:-1,:]
-        self.WaveletGAN = WaveletGAN(img_rows=xd.shape[0], img_cols=xd.shape[1])
+        self.WaveletGAN = WaveletGAN(img_rows=208, img_cols=208)
         self.discriminator =  self.WaveletGAN.discriminator_model()
         self.adversarial = self.WaveletGAN.adversarial_model()
         self.generator = self.WaveletGAN.generator()
@@ -102,6 +102,7 @@ class FSDD_WaveletGAN(object):
                 # Augment real data with fake data
                 noise_vectors = np.random.uniform(-1.0, 1.0, size=(len(x_batch), 100))
                 fake_ims = self.generator.predict(noise_vectors)
+                x_batch = x_batch[:, :fake_ims.shape[1], :fake_ims.shape[2], :]
                 #  fake_ims = np.random.random(x_batch.shape)
                 if len(fake_ims) >= 4:
                     displayed_samples = fake_ims
