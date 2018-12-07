@@ -99,7 +99,7 @@ class Discriminator(nn.Module):
 def getArgs():
     parser = argparse.ArgumentParser()
     parser.add_argument('dataset_folder', help='Directory with images to train off of')
-    parser.add_argument('datatype', choices=['wav', 'spec', 'wavelet'], default='spec', help='The type of data to train on')
+    parser.add_argument('--datatype', choices=['wav', 'spec', 'wavelet'], default='spec', help='The type of data to train on')
     parser.add_argument('--n_epochs', type=int, default=200, help='number of epochs of training')
     parser.add_argument('--batch_size', type=int, default=16, help='size of the batches')
     parser.add_argument('--w_loss', action='store_true', help='Use Wasserstein Loss instead of BCE loss')
@@ -110,7 +110,7 @@ def getArgs():
     parser.add_argument('--b1', type=float, default=0.5, help='adam: decay of first order momentum of gradient')
     parser.add_argument('--b2', type=float, default=0.999, help='adam: decay of first order momentum of gradient')
     parser.add_argument('--latent_dim', type=int, default=100, help='dimensionality of the latent space')
-    parser.add_argument('--img_size', type=int, default=128, help='size of each image dimension')
+    parser.add_argument('--img_size', type=int, default=256, help='size of each image dimension')
     parser.add_argument('--channels', type=int, default=1, help='number of image channels')
     parser.add_argument('--sample_interval', type=int, default=20, help='interval between image sampling')
     args = parser.parse_args()
@@ -138,6 +138,8 @@ class array2Spectrogram(object):
                                         hop_length=self.hop_length,
                                         window=self.window)
         M = np.abs(spectrogram)
+        desired_size = ((M.shape[0]//4)*4, (M.shape[1]//4)*4)
+        M = M[:desired_size[0], :desired_size[1]]
         M = M.reshape(M.shape[0], M.shape[1], 1)
         return M
 
@@ -197,8 +199,8 @@ if __name__ == "__main__":
 
     # Create transforms
     transformations = {
-        'wav': []
-        'spec': [array2Spectrogram(), transforms.Grayscale(), transforms.Resize(args.img_size)],
+        'wav': [],
+        'spec': [array2Spectrogram(), transforms.ToPILImage(), transforms.Grayscale(), transforms.Resize((args.img_size, args.img_size))],
         'wavelet': [array2Wavelet()]
     }[args.datatype]
 
@@ -210,8 +212,9 @@ if __name__ == "__main__":
 
     # Configure data loader
     dataset = torchvision.datasets.DatasetFolder(root=args.dataset_folder,
-                                                 loader=wavfile2Array,
+                                                 loader=wavfile2Array(),
                                                  transform=transform,
+                                                 extensions=['wav']
                                                 )
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
@@ -302,4 +305,4 @@ if __name__ == "__main__":
         print("    D_loss = {:.3f}, G_loss = {:.3f}, D_acc = {:.3f}, G_acc = {:.3f}".format(d_loss_total, g_loss_total, d_acc, g_acc))
 
         if epoch % args.sample_interval == 0:
-            np.save(os.path.join(resultdir, 'results_e{}.npy'.format(epoch)), fake_imgs)
+            np.save(os.path.join(resultdir, 'results_e{}.npy'.format(epoch)), fake_imgs.numpy())
