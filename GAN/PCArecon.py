@@ -1,4 +1,5 @@
 import numpy as np
+import argparse
 from time import time
 from sklearn.decomposition import PCA
 import scipy.io.wavfile as wio
@@ -26,6 +27,8 @@ def do_PCA(matrix, n_components):
     #might be worth exporting somehow
     print("done in %0.3fs" % (time() - t0))
     print("variance explained: %d" % (np.sum(pca.explained_variance_ratio_)))
+
+    np.savez('pca_{}components.npz', mean=pca.mean_, components=pca.components_)
     return pca;
 
 def Alt_PCA_recon(X, pca, nComp):
@@ -47,10 +50,15 @@ test_matrix = np.array([[1, 0, 0], [0, 1, 0], [0, 2, 2]])
 #test_vector = np.array([1., 4., 7.])
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('audio_matrix', help='npy file with audio matrix of all training vectors')
+    parser.add_argument('-n', '--num-components', help='Number of components to use for PCA', type=int, default=50)
+    args = parser.parse_args()
+
     rate, in_file4 = wio.read('birdmono021.wav')
-    matrix = np.load('PCA_test_data_audio_matrix.npy')
+    matrix = np.load(args.audio_matrix)
     print(test_matrix.shape, matrix.shape)
-    pca = do_PCA(matrix, 10)
+    pca = do_PCA(matrix, args.num_components)
     #print("Eigenvectors: \n", pca.components_, "\n")
     weights = get_weights(in_file4, pca.mean_, pca.components_)
     out_data = PCA_recon(weights, pca.mean_, pca.components_)

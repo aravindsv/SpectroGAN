@@ -33,69 +33,6 @@ def weights_init_normal(m):
         torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
         torch.nn.init.constant_(m.bias.data, 0.0)
 
-class Generator(nn.Module):
-    def __init__(self, img_size, latent_dim, channels=1):
-        super(Generator, self).__init__()
-
-        self.init_size = img_size // 4
-        self.l1 = nn.Sequential(
-            nn.Linear(latent_dim, 128*self.init_size**2)
-        )
-
-        self.conv_blocks = nn.Sequential(
-            nn.BatchNorm2d(128),
-            nn.Upsample(scale_factor=2),
-            nn.Conv2d(128, 128, 3, stride=1, padding=1),
-            nn.BatchNorm2d(128, 0.8),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Upsample(scale_factor=2),
-            nn.Conv2d(128, 64, 3, stride=1, padding=1),
-            nn.BatchNorm2d(64, 0.8),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(64, channels, 3, stride=1, padding=1),
-            nn.Tanh()
-        )
-
-    def forward(self, z):
-        out = self.l1(z)
-        out = out.view(out.shape[0], 128, self.init_size, self.init_size)
-        img = self.conv_blocks(out)
-        return img
-
-
-class Discriminator(nn.Module):
-    def __init__(self, img_size, channels=1, w_loss=False):
-        super(Discriminator, self).__init__()
-
-        def discriminator_block(in_filters, out_filters, bn=True):
-            block = [
-                nn.Conv2d(in_filters, out_filters, 3,2,1),
-                nn.LeakyReLU(0.2, inplace=True),
-                nn.Dropout2d(0.25)
-            ]
-            if bn:
-                block.append(nn.BatchNorm2d(out_filters, 0.8))
-            return block
-
-        self.model = nn.Sequential(
-            *discriminator_block(channels, 16, bn=False),
-            *discriminator_block(16, 32),
-            *discriminator_block(32, 64),
-            *discriminator_block(64, 128)
-        )
-
-        ds_size = img_size // 2**4
-        adv_layers = [nn.Linear(128*ds_size**2, 1)]
-        if not w_loss:
-            adv_layers.append(nn.Sigmoid())
-        self.adv_layer = nn.Sequential(*adv_layers)
-
-    def forward(self, img):
-        out = self.model(img)
-        out = out.view(out.shape[0], -1)
-        validity = self.adv_layer(out)
-        return validity
-
 def getArgs():
     parser = argparse.ArgumentParser()
     parser.add_argument('dataset_folder', help='Directory with images to train off of')
@@ -113,6 +50,8 @@ def getArgs():
     parser.add_argument('--img_size', type=int, default=256, help='size of each image dimension')
     parser.add_argument('--channels', type=int, default=1, help='number of image channels')
     parser.add_argument('--sample_interval', type=int, default=20, help='interval between image sampling')
+    parser.add_argument('--num_workers', type=int, default=1, help='Number of workers to preload data')
+    parser.add_argument('--sr', type=int, default=22050)
     args = parser.parse_args()
     return args
 
@@ -158,7 +97,7 @@ class array2Wavelet(object):
         if self.square is not None:
             waveletc = waveletc.reshape(self.square)
 
-        return waveletc
+        return torch.from_numpy(waveletc)
 
 
 
@@ -183,10 +122,20 @@ if __name__ == "__main__":
     # TODO: Implement w_loss
 
     # create generator and discriminator
-    generator = Generator(args.img_size, args.latent_dim, channels=args.channels)
-    discriminator = Discriminator(args.img_size, channels=args.channels)
-    # TODO: move generator and discriminator into separate files
-    # TODO: write a separate generator and discriminator for 1D audio
+    if args.datatype == 'wavelet':
+        from WaveletGan import Generator, Discriminator
+        num_channels = 2
+        img_size = 11024 # TODO: Figure out a better way to determine size
+    elif args.datatype == 'wav':
+        from WaveletGan import Generator, Discriminator
+        num_channels = 1
+        img_size = args.sr # TODO: Figure out a better way to determine size
+    elif args.datatype == 'spec':
+        from ImageGan import Generator, Discriminator
+        num_channels = args.channels
+        img_size = args.img_size
+    generator = Generator(img_size, args.latent_dim, channels=num_channels)
+    discriminator = Discriminator(img_size, channels=num_channels)
 
     if cuda:
         generator.cuda()
@@ -194,19 +143,18 @@ if __name__ == "__main__":
         adversarial_loss.cuda()
 
     # Initialize weights
-    generator.apply(weights_init_normal)
-    discriminator.apply(weights_init_normal)
+    #  generator.apply(weights_init_normal)
+    #  discriminator.apply(weights_init_normal)
 
     # Create transforms
     transformations = {
-        'wav': [],
-        'spec': [array2Spectrogram(), transforms.ToPILImage(), transforms.Grayscale(), transforms.Resize((args.img_size, args.img_size))],
+        'wav': [transforms.ToTensor()],
+        'spec': [array2Spectrogram(), transforms.ToPILImage(), transforms.Grayscale(), transforms.Resize((args.img_size, args.img_size)), transforms.ToTensor()],
         'wavelet': [array2Wavelet()]
     }[args.datatype]
 
     transformations.extend([
-        transforms.ToTensor()
-    ])
+            ])
 
     transform = transforms.Compose(transformations)
 
@@ -216,7 +164,7 @@ if __name__ == "__main__":
                                                  transform=transform,
                                                  extensions=['wav']
                                                 )
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
 
     # Optimizers
     optimizer_G = torch.optim.Adam(generator.parameters(), lr=args.lr_g, betas=(args.b1, args.b2))
@@ -234,6 +182,7 @@ if __name__ == "__main__":
 
         for batch_num, (imgs, _) in enumerate(dataloader):
             # Adversarial setup
+            print("x_batch: {}".format(imgs.shape))
             real_labels = Variable(Tensor(imgs.shape[0], 1).fill_(1.0), requires_grad=False)
             fake_labels = Variable(Tensor(imgs.shape[0], 1).fill_(0.0), requires_grad=False)
 
@@ -243,10 +192,10 @@ if __name__ == "__main__":
 
             # First train generator
             # Don't allow discriminator to be trained during this part
-            for p in discriminator.parameters():
-                p.requires_grad = False
-            for p in generator.parameters():
-                p.requires_grad = True
+            #  for p in discriminator.parameters():
+            #      p.requires_grad = False
+            #  for p in generator.parameters():
+            #      p.requires_grad = True
 
             for i in range(args.generator_cycles):
                 optimizer_G.zero_grad()
@@ -258,7 +207,7 @@ if __name__ == "__main__":
                 predictions_for_fake_imgs = discriminator(fake_imgs)
 
                 g_loss = adversarial_loss(predictions_for_fake_imgs, real_labels)
-                g_loss.backward(retain_graph=True)
+                g_loss.backward()
                 optimizer_G.step()
 
             g_num_correct = predictions_for_fake_imgs.round().sum()
@@ -268,17 +217,16 @@ if __name__ == "__main__":
 
             # Then train discriminator
             # Don't allow generator to be trained during this part
-            for p in discriminator.parameters():
-                p.requires_grad = True
-            for p in generator.parameters():
-                p.requires_grad = False
+            #  for p in discriminator.parameters():
+            #      p.requires_grad = True
+            #  for p in generator.parameters():
+            #      p.requires_grad = False
 
             for i in range(args.discriminator_cycles):
                 optimizer_D.zero_grad()
 
                 predictions_for_real_imgs = discriminator(real_imgs)
                 predictions_for_noise_imgs = discriminator(fake_imgs)
-
 
                 real_loss = adversarial_loss(predictions_for_real_imgs, real_labels)
                 fake_loss = adversarial_loss(predictions_for_noise_imgs, fake_labels)

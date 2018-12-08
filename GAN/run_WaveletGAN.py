@@ -7,12 +7,13 @@ import csv
 import pywt
 import librosa
 #  import scipy.io.wavfile as wio
-from tqdm import tqdm
+from tqdm import tqdm, trange
 from WaveletGAN import WaveletGAN
 
 from keras.callbacks import ModelCheckpoint, EarlyStopping, CSVLogger
 from keras.callbacks import ReduceLROnPlateau
 from keras.preprocessing.image import ImageDataGenerator
+from keras.optimizers import Adam
 
 import matplotlib.pyplot as plt
 
@@ -45,12 +46,12 @@ class FSDD_WaveletGAN(object):
         xd = xd[0]
         if xd.shape[1] % 2 != 0:
             xd = xd[:,:-1,:]
-        self.WaveletGAN = WaveletGAN(img_rows=208, img_cols=208)
+        self.WaveletGAN = WaveletGAN(img_rows=210, img_cols=210)
         self.discriminator =  self.WaveletGAN.discriminator_model()
         self.adversarial = self.WaveletGAN.adversarial_model()
         self.generator = self.WaveletGAN.generator()
 
-    def train_GAN(self, num_epochs=100, batch_size=32, img_interval = 10, patience=5):
+    def train_GAN(self, num_epochs=100, batch_size=32, img_interval = 10, patience=10):
         
         datestr = "{:%m%d%y_%H%M%S}".format(datetime.now())
         run_directory = '{}_runs/{}/'.format(self.dataset_file, datestr)
@@ -61,7 +62,10 @@ class FSDD_WaveletGAN(object):
         x_data = np.load(self.dataset_file)
         print("============================================\r\n======================================================\r\n")
         print("x_data: {}".format(x_data.shape))
-        y_labels = np.ones((len(x_data)))
+        #  y_labels = np.ones((len(x_data)))
+        positive_y = np.ones((batch_size,1), dtype=np.float32)
+        negative_y = -positive_y
+        dummy_y = np.zeros((batch_size, 1), dtype=np.float32)
         num_samples = len(x_data)
 
         fields = ['epoch', 'd_loss', 'd_acc', 'a_loss', 'a_acc']
@@ -82,55 +86,66 @@ class FSDD_WaveletGAN(object):
         for epoch in range(num_epochs):
             print("Epoch {}".format(epoch))
 
-            train_gen = self.datagen.flow(x_data, y_labels,
-                                          batch_size=batch_size,
-                                          shuffle=True,
-                                          seed=0
-                                         )
+            #  train_gen = self.datagen.flow(x_data, y_labels,
+            #                                batch_size=batch_size,
+            #                                shuffle=True,
+            #                                seed=0
+            #                               )
 
-            batch_num = 0
+            np.random.shuffle(x_data)
 
             d_loss_total = [0.0, 0.0]
             a_loss_total = [0.0, 0.0]
             starttime = datetime.now()
 
             # Get Batch
-            for x_batch,y_batch in tqdm( train_gen ):
-                _,_,N,_ = x_batch.shape
-                if N % 2 != 0:
-                    x_batch = x_batch[:,:,:-1,:]
-                # Augment real data with fake data
-                noise_vectors = np.random.uniform(-1.0, 1.0, size=(len(x_batch), 100))
-                fake_ims = self.generator.predict(noise_vectors)
-                x_batch = x_batch[:, :fake_ims.shape[1], :fake_ims.shape[2], :]
+            pbar = trange(num_samples // batch_size)
+            for batch_num in pbar:
+
+                minibatch = x_data[batch_num*batch_size:(batch_num+1)*batch_size]
+                noise = np.random.uniform(-1.0, 1.0, (batch_size, 100)).astype(np.float32)
+                d_loss = self.discriminator.train_on_batch([minibatch, noise], [positive_y, negative_y, dummy_y])
+                a_loss = self.adversarial.train_on_batch(np.random.uniform(-1.0, 1.0, (batch_size, 100)), positive_y)
+
+                #  Augment real data with fake data
+                #  noise_vectors = np.random.uniform(-1.0, 1.0, size=(len(x_batch), 100))
+                #  fake_ims = self.generator.predict(noise_vectors)
+                #  x_batch = x_batch[:, :fake_ims.shape[1], :fake_ims.shape[2], :]
+
+
+                #  Fake fake data
                 #  fake_ims = np.random.random(x_batch.shape)
-                if len(fake_ims) >= 4:
-                    displayed_samples = fake_ims
-                x_batch = np.concatenate((x_batch, fake_ims))
-                y_batch = np.hstack([y_batch, np.zeros(y_batch.shape)])
+                #  fake_ims = fake_ims[:, :208, :208, :]
+                #  x_batch = x_batch[:, :208, :208, :]
 
-                # Run Discriminator
-                d_loss = self.discriminator.train_on_batch(x_batch, y_batch)
-                d_loss_total[0] += d_loss[0]
-                d_loss_total[1] = ((d_loss_total[1]*batch_size*batch_num) + d_loss[1]*batch_size)/((batch_num+1)*batch_size)
+                #  x_batch = np.concatenate((x_batch, fake_ims))
+                #  y_batch = np.hstack([y_batch, np.zeros(y_batch.shape)])
 
-                # Run Adversarial
-                noise = np.random.uniform(-1.0, 1.0, size=[batch_size, 100])
-                noise_labels = np.ones(len(noise))
-                a_loss = self.adversarial.train_on_batch(noise, noise_labels)
-                a_loss_total[0] += a_loss[0]
-                a_loss_total[1] = ((a_loss_total[1]*batch_size*batch_num) + a_loss[1]*batch_size)/((batch_num+1)*batch_size)
+                #  if len(fake_ims) >= 4:
+                #      displayed_samples = fake_ims
+                #  Run Discriminator
+                #  d_loss = self.discriminator.train_on_batch(x_batch, y_batch)
 
-                #  # Run Adversarial again
+                #  Run Adversarial
                 #  noise = np.random.uniform(-1.0, 1.0, size=[batch_size, 100])
                 #  noise_labels = np.ones(len(noise))
                 #  a_loss = self.adversarial.train_on_batch(noise, noise_labels)
-                #  a_loss_total[0] += a_loss[0]
-                #  a_loss_total[1] = ((a_loss_total[1]*batch_size*batch_num) + a_loss[1]*batch_size)/((batch_num+1)*batch_size)
 
-                batch_num += 1
-                if batch_num*batch_size > num_samples:
-                    break
+                #  Run Adversarial again
+                #  noise = np.random.uniform(-1.0, 1.0, size=[batch_size, 100])
+                #  noise_labels = np.ones(len(noise))
+                #  a_loss = self.adversarial.train_on_batch(noise, noise_labels)
+
+                # Report Loss and Accuracy
+                d_loss_total[0] += d_loss[0]
+                d_loss_total[1] = ((d_loss_total[1]*batch_size*batch_num) + d_loss[1]*batch_size)/((batch_num+1)*batch_size)
+                a_loss_total[0] += a_loss[0]
+                a_loss_total[1] = ((a_loss_total[1]*batch_size*batch_num) + a_loss[1]*batch_size)/((batch_num+1)*batch_size)
+                pbar.set_description("D_acc: {:.3f},A_acc: {:.3f}".format(d_loss_total[1], a_loss_total[1]))
+
+                #  batch_num += 1
+                #  if batch_num*batch_size > num_samples:
+                #      break
 
             endtime = datetime.now()
             print("    epoch time: {}".format(endtime-starttime))
@@ -138,6 +153,7 @@ class FSDD_WaveletGAN(object):
             print("    d_loss: {}".format(d_loss_total))
             print("    a_loss: {}".format(a_loss_total))
 
+            displayed_samples = self.generator.predict(np.random.uniform(-1.0, 1.0, (1, 100)))
 
             row = [epoch, d_loss_total[0], d_loss_total[1], a_loss_total[0], a_loss_total[1]]
             with open(os.path.join(run_directory, 'log.csv'), 'a') as f:
