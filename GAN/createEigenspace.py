@@ -16,7 +16,7 @@ data_matrix = []
 
 for soundfile in tqdm(os.listdir(sounddir)):
     wav, fs = librosa.core.load(os.path.join(sounddir, soundfile), sr=None)
-    data_matrix = np.hstack(data_matrix, wav)
+    data_matrix = np.hstack((data_matrix, wav))
 
 data_matrix = np.array(data_matrix)
 dataset_file = '{}_audio_matrix.npy'.format(dataset_name)
