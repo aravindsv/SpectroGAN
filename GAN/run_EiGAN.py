@@ -145,6 +145,7 @@ class FSDD_EiGAN(object):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('dataset_file')
+    parser.add_argument('pca_file')
     args = parser.parse_args()
     npz = np.load(args.pca_file)
     pca_mean = npz['mean']
