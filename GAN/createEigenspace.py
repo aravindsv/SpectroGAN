@@ -6,19 +6,24 @@ from tqdm import tqdm
 import argparse
 import PCArecon as pca
 
+n = 44100
+num_samples = 20
 parser = argparse.ArgumentParser()
 parser.add_argument('sounddir')
 args = parser.parse_args()
 
 sounddir = args.sounddir
 dataset_name = os.path.basename(os.path.normpath(sounddir))
-data_matrix = []
+data_matrix = np.zeros((num_samples, n))
 
+i = 0
 for soundfile in tqdm(os.listdir(sounddir)):
     wav, fs = librosa.core.load(os.path.join(sounddir, soundfile), sr=None)
-    data_matrix = np.hstack((data_matrix, wav))
+    wav = np.array(wav)
+    data_matrix[i,:] = wav
+    i +=1
 
-data_matrix = np.array(data_matrix)
+#data_matrix = np.array(data_matrix)
 dataset_file = '{}_audio_matrix.npy'.format(dataset_name)
 np.save(dataset_file, data_matrix)
 print("Saved matrix of total shape {} at {}".format(data_matrix.shape, dataset_file))

@@ -43,18 +43,14 @@ def PCA_recon(weights, mean, eigenvectors):
     print("PCA 2: ", recon_vector)
     return recon_vector;
 
-#test_matrix = np.array([[1, 0, 0], [0, 1, 0], [0, 2, 2]])
+test_matrix = np.array([[1, 0, 0], [0, 1, 0], [0, 2, 2]])
 #test_vector = np.array([1., 4., 7.])
 
 if __name__ == '__main__':
-    rate, in_file1 = wio.read('birdmono002.wav')
-    rate, in_file2 = wio.read('birdmono003.wav')
-    rate, in_file3 = wio.read('birdmono004.wav')
-    rate, in_file4 = wio.read('birdmono005.wav')
-    test_matrix = (in_file1, in_file2, in_file3)
-    test_matrix = np.array(test_matrix)
-    print(test_matrix)
-    pca = do_PCA(test_matrix, 3)
+    rate, in_file4 = wio.read('birdmono021.wav')
+    matrix = np.load('PCA_test_data_audio_matrix.npy')
+    print(test_matrix.shape, matrix.shape)
+    pca = do_PCA(matrix, 10)
     #print("Eigenvectors: \n", pca.components_, "\n")
     weights = get_weights(in_file4, pca.mean_, pca.components_)
     out_data = PCA_recon(weights, pca.mean_, pca.components_)
