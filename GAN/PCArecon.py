@@ -28,7 +28,7 @@ def do_PCA(matrix, n_components):
     print("done in %0.3fs" % (time() - t0))
     print("variance explained: %d" % (np.sum(pca.explained_variance_ratio_)))
 
-    np.savez('pca_{}components.npz', mean=pca.mean_, components=pca.components_)
+    np.savez('pca_{}components.npz'.format(n_components), mean=pca.mean_, components=pca.components_)
     return pca;
 
 def Alt_PCA_recon(X, pca, nComp):
@@ -37,13 +37,13 @@ def Alt_PCA_recon(X, pca, nComp):
     print("Reconstructing using %d eigenvectors" % (nComp))
     Xhat = np.dot(X, pca.components_[:nComp,:])
     Xhat += mu
-    print("PCA 1: ", Xhat)
+    #  print("PCA 1: ", Xhat)
     return Xhat;
 
 def PCA_recon(weights, mean, eigenvectors):
     recon_vector = np.matmul(weights, eigenvectors)
     recon_vector += mean
-    print("PCA 2: ", recon_vector)
+    #  print("PCA 2: ", recon_vector)
     return recon_vector;
 
 test_matrix = np.array([[1, 0, 0], [0, 1, 0], [0, 2, 2]])
@@ -61,6 +61,9 @@ if __name__ == '__main__':
     pca = do_PCA(matrix, args.num_components)
     #print("Eigenvectors: \n", pca.components_, "\n")
     weights = get_weights(in_file4, pca.mean_, pca.components_)
+    import matplotlib.pyplot as plt
+    plt.plot(weights)
+    plt.show()
     out_data = PCA_recon(weights, pca.mean_, pca.components_)
     out_data = out_data.astype(np.int16)
-    wio.write("pcatest.wav", rate, out_data)
+    wio.write("pcatestbirdsounds.wav", rate, out_data)
