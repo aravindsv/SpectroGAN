@@ -13,7 +13,7 @@ def get_weights(vector, mean, eigenvectors):
         weight_entry = np.dot(vector, ev)
         #print(ev)
         weights.append(weight_entry)
-    print("Weights: ", weights)
+    #  print("Weights: ", weights)
     return weights;
 
 def do_PCA(matrix, n_components):

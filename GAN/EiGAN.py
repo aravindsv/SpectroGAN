@@ -83,7 +83,7 @@ class EiGAN(object):
         self.D = Sequential()
 
         # Dense Segment 1
-        self.D.add(Dense(1024))
+        self.D.add(Dense(1024, input_dim=500))
         self.D.add(LeakyReLU(alpha=0.2))
         self.D.add(Dropout(0.25))
 
@@ -104,7 +104,7 @@ class EiGAN(object):
 
         # Final layer
         self.D.add(Dense(1))
-        self.D.activation(Activation('linear'))
+        self.D.add(Activation('linear'))
         print("Discriminator Summary:")
         self.D.summary()
         return self.D
@@ -120,15 +120,15 @@ class EiGAN(object):
         self.G.add(Dense(starting_dim, input_dim=100))
         self.G.add(BatchNormalization(momentum=0.9))
         self.G.add(Activation('relu'))
-        self.G.add(Reshape(starting_dim,))
+        #  self.G.add(Reshape(starting_dim,))
         self.G.add(Dropout(0.25))
 
-        self.G.add(Upsampling1D())
+        #  self.G.add(UpSampling1D())
         self.G.add(Dense(starting_dim*2))
         self.G.add(BatchNormalization(momentum=0.9))
         self.G.add(Activation('relu'))
 
-        self.G.add(Upsampling1D())
+        #  self.G.add(UpSampling1D())
         self.G.add(Dense(starting_dim*4))
         self.G.add(BatchNormalization(momentum=0.9))
         self.G.add(Activation('sigmoid'))
@@ -141,7 +141,7 @@ class EiGAN(object):
     def discriminator_model(self):
         if self.DM:
             return self.DM
-        optimizer = Adam(0.0001, beta_1=0.5, beta_2=0.9)
+        optimizer = Adam(0.00005, beta_1=0.5, beta_2=0.9)
         loss_fn = wasserstein_loss
         D = self.discriminator()
         G = self.generator()
@@ -151,7 +151,7 @@ class EiGAN(object):
             layer.trainable = False
         D.trainable = True
         G.trainable = False
-        real_samples = Input(shape=(self.num_components))
+        real_samples = Input(shape=(self.num_components,))
         generator_input_for_discriminator = Input(shape=(100,))
         generated_samples_for_discriminator = G(generator_input_for_discriminator)
         discriminator_output_from_generator = D(generated_samples_for_discriminator)
@@ -171,13 +171,14 @@ class EiGAN(object):
                                  averaged_samples_out])
         self.DM.compile(optimizer=optimizer, loss=[loss_fn, loss_fn, partial_gp_loss])
 
+        print("Discriminator Model Metrics: {}".format(self.DM.metrics_names))
         return self.DM
 
 
     def adversarial_model(self):
         if self.AM:
             return self.AM
-        optimizer = Adam(0.0001, beta_1=0.5, beta_2=0.9)
+        optimizer = Adam(0.001, beta_1=0.5, beta_2=0.9)
         loss_fn = wasserstein_loss
         D = self.discriminator()
         G = self.generator()
@@ -193,5 +194,5 @@ class EiGAN(object):
         discriminator_layers_for_generator = D(generator_layers)
         self.AM = Model(inputs=[generator_input], outputs=[discriminator_layers_for_generator])
         self.AM.compile(optimizer=optimizer, loss=loss_fn, metrics=['accuracy'])
-
+        print("Adversarial Model Metrics: {}".format(self.AM.metrics_names))
         return self.AM

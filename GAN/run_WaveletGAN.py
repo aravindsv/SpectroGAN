@@ -34,12 +34,6 @@ class ElapsedTimer(object):
 
 class FSDD_WaveletGAN(object):
     def __init__(self, dataset_file):
-        self.datagen = ImageDataGenerator()
-
-        # self.x_train = input_data.read_data_sets("mnist",\
-        #     one_hot=True).train.images
-        # self.x_train = self.x_train.reshape(-1, self.img_rows,\
-        #     self.img_cols, 1).astype(np.float32)
 
         self.dataset_file = dataset_file
         xd = np.load(dataset_file)

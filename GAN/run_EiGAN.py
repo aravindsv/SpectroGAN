@@ -6,7 +6,7 @@ import sys
 import csv
 import pywt
 import librosa
-#  import scipy.io.wavfile as wio
+import scipy.io.wavfile as wio
 from tqdm import tqdm, trange
 from EiGAN import EiGAN
 from PCArecon import get_weights, PCA_recon
@@ -43,10 +43,8 @@ class FSDD_EiGAN(object):
         self.dataset_file = dataset_file
 
         xd = np.load(dataset_file)
-        xd = xd[0]
-        if xd.shape[1] % 2 != 0:
-            xd = xd[:,:-1,:]
-        self.EiGAN = EiGAN(img_rows=210, img_cols=210)
+        self.num_components = xd.shape[1]
+        self.EiGAN = EiGAN(num_components=self.num_components)
         self.discriminator =  self.EiGAN.discriminator_model()
         self.adversarial = self.EiGAN.adversarial_model()
         self.generator = self.EiGAN.generator()
@@ -100,19 +98,20 @@ class FSDD_EiGAN(object):
                 noise = np.random.uniform(-1.0, 1.0, (batch_size, 100)).astype(np.float32)
                 d_loss = self.discriminator.train_on_batch([minibatch, noise], [positive_y, negative_y, dummy_y])
                 a_loss = self.adversarial.train_on_batch(np.random.uniform(-1.0, 1.0, (batch_size, 100)), positive_y)
-
+                a_loss = self.adversarial.train_on_batch(np.random.uniform(-1.0, 1.0, (batch_size, 100)), positive_y)
 
                 # Report Loss and Accuracy
                 d_loss_total[0] += d_loss[0]
-                d_loss_total[1] = ((d_loss_total[1]*batch_size*batch_num) + d_loss[1]*batch_size)/((batch_num+1)*batch_size)
+                #  cur_acc = (d_loss[4] + d_loss[5])/2
+                #  d_loss_total[1] = ((d_loss_total[1]*batch_size*batch_num) + cur_acc*batch_size)/((batch_num+1)*batch_size)
                 a_loss_total[0] += a_loss[0]
                 a_loss_total[1] = ((a_loss_total[1]*batch_size*batch_num) + a_loss[1]*batch_size)/((batch_num+1)*batch_size)
-                pbar.set_description("D_acc: {:.3f},A_acc: {:.3f}".format(d_loss_total[1], a_loss_total[1]))
+                pbar.set_description("A_acc: {:.3f}".format(a_loss_total[1]))
 
             endtime = datetime.now()
             print("    epoch time: {}".format(endtime-starttime))
 
-            print("    d_loss: {}".format(d_loss_total))
+            #  print("    d_loss: {}".format(d_loss_total))
             print("    a_loss: {}".format(a_loss_total))
 
             displayed_samples = self.generator.predict(np.random.uniform(-1.0, 1.0, (1, 100)))
@@ -126,7 +125,8 @@ class FSDD_EiGAN(object):
             if epoch%img_interval == 0:
                 self.adversarial.save(os.path.join(model_dir, 'adversarial_checkpoint_acc{}_e{}.h5'.format(a_loss_total[1], epoch)))                
                 reconstruction = PCA_recon(displayed_samples[0], self.pcamean, self.pcacomponents).astype(np.int16)
-                librosa.output.write_wav(os.path.join(run_directory, "reconstruction_e{}.wav".format(epoch)), reconstruction, 44100, norm=True)
+                wio.write(os.path.join(run_directory, "reconstruction_e{}.wav".format(epoch)), 44100, reconstruction)
+                #  librosa.output.write_wav(os.path.join(run_directory, "reconstruction_e{}.wav".format(epoch)), reconstruction, 44100, norm=True)
                 #  wio.write(os.path.join(run_directory, "reconstrution_e{}.wav".format(epoch)), 44100, reconstruction)
             if a_loss_total[0] >= last_a_loss:
                 patience_counter += 1
@@ -140,7 +140,8 @@ class FSDD_EiGAN(object):
 
         self.adversarial.save(os.path.join(model_dir, 'adversarial_final_acc{}.h5'.format(a_loss_total[1])))                
         reconstruction = PCA_recon(displayed_samples[0], self.pcamean, self.pcacomponents).astype(np.int16)
-        librosa.output.write_wav(os.path.join(run_directory, "reconstruction_final.wav"), reconstruction, 44100, norm=True)
+        wio.write(os.path.join(run_directory, "reconstruction_final.wav"), 44100, reconstruction)
+        #  librosa.output.write_wav(os.path.join(run_directory, "reconstruction_final.wav"), reconstruction, 44100, norm=True)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -152,5 +153,5 @@ if __name__ == '__main__':
     pca_components = npz['components']
     waveletGAN = FSDD_EiGAN(args.dataset_file, pca_mean, pca_components)
     timer = ElapsedTimer()
-    waveletGAN.train_GAN(num_epochs=50, batch_size=8, img_interval=1)
+    waveletGAN.train_GAN(num_epochs=500, batch_size=16, img_interval=10, patience=500)
     timer.elapsed_time()
