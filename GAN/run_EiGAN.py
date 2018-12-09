@@ -124,10 +124,10 @@ class FSDD_EiGAN(object):
 
             if epoch%img_interval == 0:
                 self.adversarial.save(os.path.join(model_dir, 'adversarial_checkpoint_acc{}_e{}.h5'.format(a_loss_total[1], epoch)))                
-                reconstruction = PCA_recon(displayed_samples[0], self.pcamean, self.pcacomponents).astype(np.int16)
-                wio.write(os.path.join(run_directory, "reconstruction_e{}.wav".format(epoch)), 44100, reconstruction)
-                #  librosa.output.write_wav(os.path.join(run_directory, "reconstruction_e{}.wav".format(epoch)), reconstruction, 44100, norm=True)
-                #  wio.write(os.path.join(run_directory, "reconstrution_e{}.wav".format(epoch)), 44100, reconstruction)
+                reconstruction = PCA_recon(displayed_samples[0], self.pcamean, self.pcacomponents)
+                librosa.output.write_wav(os.path.join(run_directory, "reconstruction_e{}_normalized.wav".format(epoch)), reconstruction, 44100, norm=True)
+                librosa.output.write_wav(os.path.join(run_directory, "reconstruction_e{}.wav".format(epoch)), reconstruction, 44100, norm=False)
+
             if a_loss_total[0] >= last_a_loss:
                 patience_counter += 1
             else:
@@ -139,9 +139,10 @@ class FSDD_EiGAN(object):
                 break
 
         self.adversarial.save(os.path.join(model_dir, 'adversarial_final_acc{}.h5'.format(a_loss_total[1])))                
-        reconstruction = PCA_recon(displayed_samples[0], self.pcamean, self.pcacomponents).astype(np.int16)
-        wio.write(os.path.join(run_directory, "reconstruction_final.wav"), 44100, reconstruction)
-        #  librosa.output.write_wav(os.path.join(run_directory, "reconstruction_final.wav"), reconstruction, 44100, norm=True)
+        reconstruction = PCA_recon(displayed_samples[0], self.pcamean, self.pcacomponents)
+        #  wio.write(os.path.join(run_directory, "reconstruction_final.wav"), 44100, reconstruction)
+        librosa.output.write_wav(os.path.join(run_directory, "reconstruction_final_normalized.wav"), reconstruction, 44100, norm=True)
+        librosa.output.write_wav(os.path.join(run_directory, "reconstruction_final.wav"), reconstruction, 44100, norm=False)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

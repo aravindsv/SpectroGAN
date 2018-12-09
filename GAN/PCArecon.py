@@ -29,6 +29,7 @@ def do_PCA(matrix, n_components):
     print("variance explained: %d" % (np.sum(pca.explained_variance_ratio_)))
 
     np.savez('pca_{}components.npz'.format(n_components), mean=pca.mean_, components=pca.components_)
+    print("Saved PCA matrix to {}".format("pca_{}components.npz".format(n_components)))
     return pca;
 
 def Alt_PCA_recon(X, pca, nComp):

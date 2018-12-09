@@ -4,30 +4,32 @@ import os
 import librosa
 from tqdm import tqdm
 import argparse
-import PCArecon as pca
+from PCArecon import get_weights
 
 parser = argparse.ArgumentParser()
 parser.add_argument('sounddir')
+parser.add_argument('eigendir')
 args = parser.parse_args()
 
 sounddir = args.sounddir
-n = 220500
-num_samples = len(os.listdir(sounddir))
+eigendir = args.eigendir
 dataset_name = os.path.basename(os.path.normpath(sounddir))
-data_matrix = np.zeros((num_samples, n))
+data_matrix = []
+matrix = np.load(eigendir)
+mean = matrix['mean']
+eigen = matrix['components']
 
-i = 0
+sample_len = 220500
+
 for soundfile in tqdm(os.listdir(sounddir)):
     wav, fs = librosa.core.load(os.path.join(sounddir, soundfile), sr=None)
     wav = np.array(wav)
-    if len(wav) != n:
+    if len(wav) != sample_len:
         continue
-    data_matrix[i,:] = wav
-    i +=1
+    weights_array = get_weights(wav, mean, eigen)
+    data_matrix.append(weights_array)
 
-data_matrix = data_matrix[:i]
-
-#data_matrix = np.array(data_matrix)
+data_matrix = np.array(data_matrix)
 dataset_file = '{}_audio_matrix.npy'.format(dataset_name)
 np.save(dataset_file, data_matrix)
-print("Saved matrix of total shape {} at {}".format(data_matrix.shape, dataset_file))
+print("Saved data_matrix of shape {} to {}".format(data_matrix.shape, dataset_file))

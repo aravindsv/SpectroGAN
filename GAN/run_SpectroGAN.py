@@ -40,7 +40,7 @@ class FSDD_SpectroGAN(object):
         xd0 = xd[0]
         if xd0.shape[0] % 2 != 0:
             xd = xd[:,:-1,:,:]
-        self.SpectroGAN = SpectroGAN(img_rows=xd.shape[0], img_cols=xd.shape[1])
+        self.SpectroGAN = SpectroGAN(img_rows=xd.shape[1], img_cols=xd.shape[2])
         self.discriminator =  self.SpectroGAN.discriminator_model()
         self.adversarial = self.SpectroGAN.adversarial_model()
         self.generator = self.SpectroGAN.generator()
@@ -85,8 +85,8 @@ class FSDD_SpectroGAN(object):
             for batch_num in pbar:
 
                 minibatch = x_data[batch_num*batch_size:(batch_num+1)*batch_size]
-                noise = np.random.uniform(-1.0, 1.0, (batch_size, 100)).astype(np.float32)
-                d_loss = self.discriminator.train_on_batch([minibatch, noise], [positive_y, negative_y, dummy_y])
+                noise = np.random.uniform(-1.0, 1.0, minibatch.shape).astype(np.float32)
+                d_loss = self.discriminator.train_on_batch(np.concatenate([minibatch, noise]), np.concatenate([positive_y, negative_y]))
                 a_loss = self.adversarial.train_on_batch(np.random.uniform(-1.0, 1.0, (batch_size, 100)), positive_y)
 
 

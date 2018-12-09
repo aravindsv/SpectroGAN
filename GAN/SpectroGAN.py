@@ -56,7 +56,7 @@ class SpectroGAN(object):
             return self.G
         self.G = Sequential()
         dropout = 0.4
-        depth = 64+64#+64#+64
+        depth = 64#+64#+64#+64
         dim_1 = self.img_rows//4
         dim_2 = self.img_cols//4
         # In: 100
