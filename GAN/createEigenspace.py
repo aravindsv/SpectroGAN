@@ -11,7 +11,7 @@ parser.add_argument('sounddir')
 args = parser.parse_args()
 
 sounddir = args.sounddir
-n = 220500
+n = 6000
 num_samples = len(os.listdir(sounddir))
 dataset_name = os.path.basename(os.path.normpath(sounddir))
 data_matrix = np.zeros((num_samples, n))

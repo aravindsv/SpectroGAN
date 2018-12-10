@@ -18,7 +18,7 @@ data_matrix = []
 matrix = np.load(eigendir)
 mean = matrix['mean']
 eigen = matrix['components']
-sample_len = 44100
+sample_len = 6000
 
 for soundfile in tqdm(os.listdir(sounddir)):
     wav, fs = librosa.core.load(os.path.join(sounddir, soundfile), sr=None)

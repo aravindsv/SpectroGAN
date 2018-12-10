@@ -68,7 +68,7 @@ def gradient_penalty_loss(y_true, y_pred, averaged_samples, gradient_penalty_wei
 
 
 class WaveletGAN(object):
-    def __init__(self, img_rows=2, img_cols=16000):
+    def __init__(self, img_rows, img_cols):
 
         self.img_rows = img_rows
         self.img_cols = img_cols
@@ -196,7 +196,7 @@ class WaveletGAN(object):
     def adversarial_model(self):
         if self.AM:
             return self.AM
-        optimizer = Adam(0.0001, beta_1=0.5, beta_2=0.9)
+        optimizer = Adam(0.001, beta_1=0.5, beta_2=0.9)
         loss_fn = wasserstein_loss
         D = self.discriminator()
         G = self.generator()

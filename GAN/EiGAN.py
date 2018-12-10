@@ -83,7 +83,7 @@ class EiGAN(object):
         self.D = Sequential()
 
         # Dense Segment 1
-        self.D.add(Dense(1024, input_dim=500))
+        self.D.add(Dense(1024, input_dim=self.num_components))
         self.D.add(LeakyReLU(alpha=0.2))
         self.D.add(Dropout(0.25))
 
@@ -141,7 +141,7 @@ class EiGAN(object):
     def discriminator_model(self):
         if self.DM:
             return self.DM
-        optimizer = Adam(0.00005, beta_1=0.5, beta_2=0.9)
+        optimizer = Adam(0.0001, beta_1=0.5, beta_2=0.9)
         loss_fn = wasserstein_loss
         D = self.discriminator()
         G = self.generator()
@@ -178,7 +178,7 @@ class EiGAN(object):
     def adversarial_model(self):
         if self.AM:
             return self.AM
-        optimizer = Adam(0.001, beta_1=0.5, beta_2=0.9)
+        optimizer = Adam(0.0001, beta_1=0.5, beta_2=0.9)
         loss_fn = wasserstein_loss
         D = self.discriminator()
         G = self.generator()

@@ -49,7 +49,7 @@ class FSDD_EiGAN(object):
         self.adversarial = self.EiGAN.adversarial_model()
         self.generator = self.EiGAN.generator()
 
-    def train_GAN(self, num_epochs=100, batch_size=32, img_interval = 10, patience=10):
+    def train_GAN(self, num_epochs=100, batch_size=32, img_interval = 10, patience=10, fs=44100):
         
         datestr = "{:%m%d%y_%H%M%S}".format(datetime.now())
         run_directory = '{}_runs/{}/'.format(self.dataset_file, datestr)
@@ -58,6 +58,7 @@ class FSDD_EiGAN(object):
         os.makedirs(model_dir, exist_ok=True)
 
         x_data = np.load(self.dataset_file)
+        self.fs = fs
         print("============================================\r\n======================================================\r\n")
         print("x_data: {}".format(x_data.shape))
         #  y_labels = np.ones((len(x_data)))
@@ -125,8 +126,8 @@ class FSDD_EiGAN(object):
             if epoch%img_interval == 0:
                 self.adversarial.save(os.path.join(model_dir, 'adversarial_checkpoint_acc{}_e{}.h5'.format(a_loss_total[1], epoch)))                
                 reconstruction = PCA_recon(displayed_samples[0], self.pcamean, self.pcacomponents)
-                librosa.output.write_wav(os.path.join(run_directory, "reconstruction_e{}_normalized.wav".format(epoch)), reconstruction, 44100, norm=True)
-                librosa.output.write_wav(os.path.join(run_directory, "reconstruction_e{}.wav".format(epoch)), reconstruction, 44100, norm=False)
+                librosa.output.write_wav(os.path.join(run_directory, "reconstruction_e{}_normalized.wav".format(epoch)), reconstruction, self.fs, norm=True)
+                librosa.output.write_wav(os.path.join(run_directory, "reconstruction_e{}.wav".format(epoch)), reconstruction, self.fs, norm=False)
 
             if a_loss_total[0] >= last_a_loss:
                 patience_counter += 1
@@ -140,19 +141,20 @@ class FSDD_EiGAN(object):
 
         self.adversarial.save(os.path.join(model_dir, 'adversarial_final_acc{}.h5'.format(a_loss_total[1])))                
         reconstruction = PCA_recon(displayed_samples[0], self.pcamean, self.pcacomponents)
-        #  wio.write(os.path.join(run_directory, "reconstruction_final.wav"), 44100, reconstruction)
-        librosa.output.write_wav(os.path.join(run_directory, "reconstruction_final_normalized.wav"), reconstruction, 44100, norm=True)
-        librosa.output.write_wav(os.path.join(run_directory, "reconstruction_final.wav"), reconstruction, 44100, norm=False)
+        #  wio.write(os.path.join(run_directory, "reconstruction_final.wav"), self.fs, reconstruction)
+        librosa.output.write_wav(os.path.join(run_directory, "reconstruction_final_normalized.wav"), reconstruction, self.fs, norm=True)
+        librosa.output.write_wav(os.path.join(run_directory, "reconstruction_final.wav"), reconstruction, self.fs, norm=False)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('dataset_file')
     parser.add_argument('pca_file')
+    parser.add_argument('--fs', type=int, default=44100, help='Sampling rate dataset was created at')
     args = parser.parse_args()
     npz = np.load(args.pca_file)
     pca_mean = npz['mean']
     pca_components = npz['components']
     waveletGAN = FSDD_EiGAN(args.dataset_file, pca_mean, pca_components)
     timer = ElapsedTimer()
-    waveletGAN.train_GAN(num_epochs=500, batch_size=16, img_interval=10, patience=500)
+    waveletGAN.train_GAN(num_epochs=500, batch_size=16, img_interval=10, patience=500, fs=args.fs)
     timer.elapsed_time()

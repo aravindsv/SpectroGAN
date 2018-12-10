@@ -22,7 +22,7 @@ wavelet_len = (len(cat)//4)*4
 
 num_training_instances = int(np.round(len(os.listdir(sounddir))//samples_per_ti))
 
-wavelet_arr = np.zeros((num_training_instances, 2*samples_per_ti, wavelet_len))
+wavelet_arr = np.zeros((num_training_instances, 2*samples_per_ti, wavelet_len, 1))
 cur_ti = np.zeros((2*samples_per_ti, wavelet_len))
 
 i = 0
@@ -39,7 +39,7 @@ for soundfile in tqdm(os.listdir(sounddir)):
     cur_ti[j*2 + 1] = cD
     j += 1
     if j >= samples_per_ti:
-        wavelet_arr[i] = cur_ti
+        wavelet_arr[i] = np.expand_dims(cur_ti, 2)
         i += 1
         j = 0
         cur_ti = np.zeros((2*samples_per_ti, wavelet_len))

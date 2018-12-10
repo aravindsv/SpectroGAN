@@ -6,9 +6,10 @@ import sys
 import csv
 import pywt
 import librosa
-#  import scipy.io.wavfile as wio
+import scipy.io.wavfile as wio
 from tqdm import tqdm, trange
-from WaveletGAN import WaveletGAN
+from EiGAN import EiGAN
+from PCA_eig_recon import get_weights, PCA_recon, wavelet_recon
 
 from keras.callbacks import ModelCheckpoint, EarlyStopping, CSVLogger
 from keras.callbacks import ReduceLROnPlateau
@@ -18,6 +19,7 @@ from keras.optimizers import Adam
 import matplotlib.pyplot as plt
 
 import argparse
+
 
 class ElapsedTimer(object):
     def __init__(self):
@@ -32,19 +34,22 @@ class ElapsedTimer(object):
     def elapsed_time(self):
         print("Elapsed: %s " % self.elapsed(time.time() - self.start_time) )
 
-class FSDD_WaveletGAN(object):
-    def __init__(self, dataset_file):
+class FSDD_EiGAN(object):
+    def __init__(self, dataset_file, pcamean, pcacomponents):
+
+        self.pcamean = pcamean
+        self.pcacomponents = pcacomponents
 
         self.dataset_file = dataset_file
-        xd = np.load(dataset_file)
-        xd = xd[0]
-        img_rows, img_cols, _ = xd.shape
-        self.WaveletGAN = WaveletGAN(img_rows=img_rows, img_cols=img_cols)
-        self.discriminator =  self.WaveletGAN.discriminator_model()
-        self.adversarial = self.WaveletGAN.adversarial_model()
-        self.generator = self.WaveletGAN.generator()
 
-    def train_GAN(self, num_epochs=100, batch_size=32, img_interval = 10, patience=10):
+        xd = np.load(dataset_file)
+        self.num_components = xd.shape[1]
+        self.EiGAN = EiGAN(num_components=self.num_components)
+        self.discriminator =  self.EiGAN.discriminator_model()
+        self.adversarial = self.EiGAN.adversarial_model()
+        self.generator = self.EiGAN.generator()
+
+    def train_GAN(self, num_epochs=100, batch_size=32, img_interval = 10, patience=10, fs=44100):
         
         datestr = "{:%m%d%y_%H%M%S}".format(datetime.now())
         run_directory = '{}_runs/{}/'.format(self.dataset_file, datestr)
@@ -53,6 +58,7 @@ class FSDD_WaveletGAN(object):
         os.makedirs(model_dir, exist_ok=True)
 
         x_data = np.load(self.dataset_file)
+        self.fs = fs
         print("============================================\r\n======================================================\r\n")
         print("x_data: {}".format(x_data.shape))
         #  y_labels = np.ones((len(x_data)))
@@ -69,6 +75,12 @@ class FSDD_WaveletGAN(object):
         last_a_loss = float('inf')
         patience_counter = 0
         displayed_samples = None
+
+        #  noise_vector = np.random.uniform(-1.0, 1.0, size=(1, 100))
+        #  fake_im = self.generator.predict(noise_vector)
+        #  wavelet = fake_im[0]
+        #  cA, cD = wavelet[0,:], wavelet[1,:]
+        #  print("wavelet: {}, {}".format(cA.shape, cD.shape))
 
         for epoch in range(num_epochs):
             print("Epoch {}".format(epoch))
@@ -87,19 +99,20 @@ class FSDD_WaveletGAN(object):
                 noise = np.random.uniform(-1.0, 1.0, (batch_size, 100)).astype(np.float32)
                 d_loss = self.discriminator.train_on_batch([minibatch, noise], [positive_y, negative_y, dummy_y])
                 a_loss = self.adversarial.train_on_batch(np.random.uniform(-1.0, 1.0, (batch_size, 100)), positive_y)
+                a_loss = self.adversarial.train_on_batch(np.random.uniform(-1.0, 1.0, (batch_size, 100)), positive_y)
 
                 # Report Loss and Accuracy
                 d_loss_total[0] += d_loss[0]
-                d_loss_total[1] = ((d_loss_total[1]*batch_size*batch_num) + d_loss[1]*batch_size)/((batch_num+1)*batch_size)
+                #  cur_acc = (d_loss[4] + d_loss[5])/2
+                #  d_loss_total[1] = ((d_loss_total[1]*batch_size*batch_num) + cur_acc*batch_size)/((batch_num+1)*batch_size)
                 a_loss_total[0] += a_loss[0]
                 a_loss_total[1] = ((a_loss_total[1]*batch_size*batch_num) + a_loss[1]*batch_size)/((batch_num+1)*batch_size)
-                pbar.set_description("D_acc: {:.3f},A_acc: {:.3f}".format(d_loss_total[1], a_loss_total[1]))
-
+                pbar.set_description("A_acc: {:.3f}".format(a_loss_total[1]))
 
             endtime = datetime.now()
             print("    epoch time: {}".format(endtime-starttime))
 
-            print("    d_loss: {}".format(d_loss_total))
+            #  print("    d_loss: {}".format(d_loss_total))
             print("    a_loss: {}".format(a_loss_total))
 
             displayed_samples = self.generator.predict(np.random.uniform(-1.0, 1.0, (1, 100)))
@@ -112,13 +125,11 @@ class FSDD_WaveletGAN(object):
 
             if epoch%img_interval == 0:
                 self.adversarial.save(os.path.join(model_dir, 'adversarial_checkpoint_acc{}_e{}.h5'.format(a_loss_total[1], epoch)))                
-                wavelet = displayed_samples[0]
-                #  wavelet = wavelet.reshape(2,-1)
-                wavelet = wavelet[:2,:]
-                cA, cD = wavelet[0].reshape(-1), wavelet[1].reshape(-1)
-                reconstruction = pywt.idwt(cA, cD, 'db2')
-                librosa.output.write_wav(os.path.join(run_directory, "reconstruction_e{}_normalized.wav".format(epoch)), reconstruction, 44100, norm=True)
-                librosa.output.write_wav(os.path.join(run_directory, "reconstruction_e{}.wav".format(epoch)), reconstruction, 44100, norm=False)
+                reconstruction = PCA_recon(displayed_samples[0], self.pcamean, self.pcacomponents)
+                reconstruction = wavelet_recon(reconstruction)
+                librosa.output.write_wav(os.path.join(run_directory, "reconstruction_e{}_normalized.wav".format(epoch)), reconstruction, self.fs, norm=True)
+                librosa.output.write_wav(os.path.join(run_directory, "reconstruction_e{}.wav".format(epoch)), reconstruction, self.fs, norm=False)
+
             if a_loss_total[0] >= last_a_loss:
                 patience_counter += 1
             else:
@@ -130,19 +141,22 @@ class FSDD_WaveletGAN(object):
                 break
 
         self.adversarial.save(os.path.join(model_dir, 'adversarial_final_acc{}.h5'.format(a_loss_total[1])))                
-        wavelet = displayed_samples[0]
-        #  wavelet = wavelet.reshape(2,-1)
-        wavelet = wavelet[:2,:]
-        cA, cD = wavelet[0].reshape(-1), wavelet[1].reshape(-1)
-        reconstruction = pywt.idwt(cA, cD, 'db2')
-        librosa.output.write_wav(os.path.join(run_directory, "reconstruction_final_normalized.wav"), reconstruction, 44100, norm=True)
-        librosa.output.write_wav(os.path.join(run_directory, "reconstruction_final.wav"), reconstruction, 44100, norm=False)
+        reconstruction = PCA_recon(displayed_samples[0], self.pcamean, self.pcacomponents)
+        reconstruction = wavelet_recon(reconstruction)
+        #  wio.write(os.path.join(run_directory, "reconstruction_final.wav"), self.fs, reconstruction)
+        librosa.output.write_wav(os.path.join(run_directory, "reconstruction_final_normalized.wav"), reconstruction, self.fs, norm=True)
+        librosa.output.write_wav(os.path.join(run_directory, "reconstruction_final.wav"), reconstruction, self.fs, norm=False)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('dataset_file')
+    parser.add_argument('pca_file')
+    parser.add_argument('--fs', type=int, default=44100, help='Sampling rate dataset was created at')
     args = parser.parse_args()
-    waveletGAN = FSDD_WaveletGAN(args.dataset_file)
+    npz = np.load(args.pca_file)
+    pca_mean = npz['mean']
+    pca_components = npz['components']
+    waveletGAN = FSDD_EiGAN(args.dataset_file, pca_mean, pca_components)
     timer = ElapsedTimer()
-    waveletGAN.train_GAN(num_epochs=50, batch_size=8, img_interval=1)
+    waveletGAN.train_GAN(num_epochs=500, batch_size=16, img_interval=10, patience=500, fs=args.fs)
     timer.elapsed_time()

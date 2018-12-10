@@ -28,7 +28,7 @@ def do_PCA(matrix, n_components):
     print("done in %0.3fs" % (time() - t0))
     print("variance explained: %d" % (np.sum(pca.explained_variance_ratio_)))
 
-    np.savez('pca_{}components.npz'.format(n_components), mean=pca.mean_, components=pca.components_)
+    np.savez('pca_{}components_speech.npz'.format(n_components), mean=pca.mean_, components=pca.components_)
     print("Saved PCA matrix to {}".format("pca_{}components.npz".format(n_components)))
     return pca;
 

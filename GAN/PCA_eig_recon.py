@@ -5,10 +5,6 @@ from sklearn.decomposition import PCA
 import scipy.io.wavfile as wio
 import argparse
 import pywt
-parser = argparse.ArgumentParser()
-parser.add_argument('eigenspace')
-args = parser.parse_args()
-eigen = args.eigenspace
 
 def get_weights(vector, mean, eigenvectors):
     #input data vector and eigenvectors as numpy array
@@ -34,7 +30,7 @@ def do_PCA(matrix, n_components):
     print("done in %0.3fs" % (time() - t0))
     print("variance explained: %d" % (np.sum(pca.explained_variance_ratio_)))
 
-    np.savez('pcaeig_{}components.npz'.format(n_components), mean=pca.mean_, components=pca.components_)
+    np.savez('pcaeig_{}components_speech.npz'.format(n_components), mean=pca.mean_, components=pca.components_)
     return pca;
 
 def Alt_PCA_recon(X, pca, nComp):
@@ -72,7 +68,7 @@ test_matrix = np.array([[1, 0, 0], [0, 1, 0], [0, 2, 2]])
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('audio_matrix', help='npy file with audio matrix of all training vectors')
-    parser.add_argument('-n', '--num-components', help='Number of components to use for PCA', type=int, default=500)
+    parser.add_argument('-n', '--num-components', help='Number of components to use for PCA', type=int, default=100)
     args = parser.parse_args()
 
     rate, in_file4 = wio.read('birdmono021.wav')

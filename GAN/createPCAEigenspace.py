@@ -13,7 +13,7 @@ parser.add_argument('sounddir')
 args = parser.parse_args()
 
 sounddir = args.sounddir
-n = 44100
+n = 6000
 num_samples = len(os.listdir(sounddir))
 dataset_name = os.path.basename(os.path.normpath(sounddir))
 num_clips = len(os.listdir(sounddir))
